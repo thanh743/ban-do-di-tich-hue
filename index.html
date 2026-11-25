@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Bản đồ di tích Huế</title>
+<meta name="description" content="Bản đồ di tích Huế cho bạn nhỏ: xem hình, nghe kể chuyện, chơi đố vui nhận huy hiệu.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --navy:#0a1f5c; --blue:#1d4ed8; --sky:#e0f2fe; --paper:#fffbeb;
+  --ink:#1e293b; --muted:#64748b; --gold:#f59e0b; --green:#16a34a; --red:#dc2626;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:"Baloo 2",system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+button{font:inherit;cursor:pointer;border:0}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--navy);color:#fff;z-index:500;box-shadow:0 2px 10px #0003}
+header .logo{width:40px;height:40px;flex:none}
+header h1{font-size:22px;line-height:1.05;margin:0;font-weight:800}
+header h1 small{display:block;font-size:13px;font-weight:500;color:#93c5fd}
+#badgeBtn{margin-left:auto;background:#fff;color:var(--navy);border-radius:999px;padding:6px 14px;font-weight:800;font-size:18px;display:flex;align-items:center;gap:6px}
+#map{flex:1}
+.pin{width:44px;height:44px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:grid;place-items:center;border:4px solid #fff;box-shadow:0 3px 8px #0004}
+.pin span{transform:rotate(45deg);font-size:21px}
+.pin.done{outline:4px solid var(--gold)}
+.pin.done::after{content:"⭐";position:absolute;transform:rotate(45deg);top:-14px;right:-14px;font-size:20px}
+.leaflet-tooltip.lbl{font-family:"Baloo 2";font-weight:700;font-size:14px;color:var(--navy);border-radius:10px;padding:2px 8px}
+
+/* thẻ di tích */
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:900;background:#fff;border-radius:26px 26px 0 0;box-shadow:0 -6px 24px #0003;
+  max-height:78vh;overflow:auto;transform:translateY(110%);transition:transform .35s ease;padding:14px 18px 22px;max-width:560px;margin:0 auto}
+#sheet.open{transform:none}
+.grab{width:48px;height:6px;border-radius:9px;background:#cbd5e1;margin:0 auto 10px}
+.top{display:flex;gap:14px;align-items:center}
+.big{width:76px;height:76px;border-radius:22px;display:grid;place-items:center;font-size:44px;flex:none}
+.top h2{margin:0;font-size:26px;line-height:1.1;color:var(--navy)}
+.top .tag{color:var(--muted);font-size:15px}
+.story{font-size:19px;line-height:1.45;margin:12px 0}
+.story p{margin:0 0 6px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{flex:1;min-width:130px;padding:12px 14px;border-radius:16px;font-size:19px;font-weight:700;display:flex;gap:8px;align-items:center;justify-content:center}
+.b-listen{background:var(--sky);color:var(--blue)}
+.b-quiz{background:var(--gold);color:#fff}
+.b-close{background:#f1f5f9;color:var(--muted);flex:0 0 auto;min-width:0}
+.quiz{margin-top:14px;background:var(--paper);border:3px dashed var(--gold);border-radius:18px;padding:14px}
+.quiz h3{margin:0 0 10px;font-size:20px;color:var(--navy)}
+.opt{display:block;width:100%;text-align:left;background:#fff;border:3px solid #e2e8f0;border-radius:14px;padding:10px 14px;font-size:18px;margin-bottom:8px;color:var(--ink)}
+.opt.ok{border-color:var(--green);background:#dcfce7}
+.opt.no{border-color:var(--red);background:#fee2e2;animation:shake .3s}
+.msg{font-weight:700;font-size:18px;min-height:26px}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* màn hình chào + huy hiệu */
+.overlay{position:fixed;inset:0;z-index:1000;background:#0a1f5ccc;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.show{display:flex}
+.panel{background:#fff;border-radius:28px;max-width:460px;width:100%;padding:22px;text-align:center;max-height:90vh;overflow:auto}
+.panel h2{margin:6px 0;color:var(--navy);font-size:28px;line-height:1.15}
+.panel p{font-size:19px;line-height:1.45;margin:8px 0}
+.go{background:var(--blue);color:#fff;border-radius:18px;padding:12px 26px;font-size:22px;font-weight:800;margin-top:8px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.bd{display:flex;flex-direction:column;align-items:center;font-size:13px;line-height:1.15;color:var(--muted)}
+.bd i{font-style:normal;width:62px;height:62px;border-radius:50%;display:grid;place-items:center;font-size:30px;background:#f1f5f9;filter:grayscale(1);opacity:.45;margin-bottom:4px}
+.bd.got{color:var(--navy);font-weight:700}
+.bd.got i{filter:none;opacity:1;box-shadow:0 0 0 4px var(--gold)}
+.cert{border:4px solid var(--gold);border-radius:20px;padding:12px;background:var(--paper);margin-top:6px}
+.toast{position:fixed;left:50%;top:76px;transform:translateX(-50%) scale(.8);opacity:0;z-index:1100;background:#fff;border-radius:18px;padding:10px 18px;
+  font-weight:800;font-size:20px;color:var(--navy);box-shadow:0 6px 20px #0004;transition:.3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) scale(1)}
+.leaflet-control-attribution{font-size:10px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="31" fill="#fde68a"/>
+      <path d="M32 10c6 8 6 18 0 26-6-8-6-18 0-26z" fill="#f472b6"/>
+      <path d="M14 22c10 1 16 7 18 14-9 1-17-4-18-14zM50 22c-10 1-16 7-18 14 9 1 17-4 18-14z" fill="#f9a8d4"/>
+      <circle cx="26" cy="44" r="2.6" fill="#0a1f5c"/><circle cx="38" cy="44" r="2.6" fill="#0a1f5c"/>
+      <path d="M27 50q5 4 10 0" stroke="#0a1f5c" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    </svg>
+    <h1>Bản đồ di tích Huế<small>Cùng Bé Sen khám phá Cố đô</small></h1>
+    <button id="badgeBtn" aria-label="Xem huy hiệu">🏅 <span id="count">0/8</span></button>
+  </header>
+  <div id="map" role="application" aria-label="Bản đồ thành phố Huế"></div>
+</div>
+
+<section id="sheet" aria-live="polite"></section>
+
+<div class="overlay show" id="welcome">
+  <div class="panel">
+    <svg viewBox="0 0 64 64" width="110" height="110" aria-hidden="true">
+      <circle cx="32" cy="32" r="31" fill="#fde68a"/>
+      <path d="M32 10c6 8 6 18 0 26-6-8-6-18 0-26z" fill="#f472b6"/>
+      <path d="M14 22c10 1 16 7 18 14-9 1-17-4-18-14zM50 22c-10 1-16 7-18 14 9 1 17-4 18-14z" fill="#f9a8d4"/>
+      <circle cx="26" cy="44" r="2.6" fill="#0a1f5c"/><circle cx="38" cy="44" r="2.6" fill="#0a1f5c"/>
+      <path d="M27 50q5 4 10 0" stroke="#0a1f5c" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    </svg>
+    <h2>Chào bạn! Mình là Bé Sen 🌸</h2>
+    <p>Huế có rất nhiều di tích đẹp. Bấm vào <b>ghim màu</b> trên bản đồ để xem, <b>nghe kể chuyện</b> và <b>chơi đố vui</b> nhé!</p>
+    <p>Trả lời đúng cả 8 câu đố, bạn sẽ thành <b>Nhà thám hiểm nhí</b> 🏆</p>
+    <button class="go" id="start">Bắt đầu khám phá!</button>
+  </div>
+</div>
+
+<div class="overlay" id="badges">
+  <div class="panel">
+    <h2>Huy hiệu của bạn</h2>
+    <div class="grid" id="grid"></div>
+    <div id="certBox"></div>
+    <button class="go" id="closeBadges">Tiếp tục khám phá</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const PLACES = [
+  { id:"dainoi", name:"Đại Nội", emoji:"🏯", color:"#ef4444", tag:"Hoàng cung của các vua Nguyễn",
+    pos:[16.4677,107.5791], dir:"left",
+    story:["Đại Nội là nơi các vua triều Nguyễn sống và làm việc.",
+           "Cổng chính rất to và đẹp, tên là Ngọ Môn.",
+           "Bên trong có Điện Thái Hòa, nơi vua ngồi ngai vàng để thiết triều."],
+    q:"Cổng chính vào Đại Nội tên là gì?", a:["Ngọ Môn","Cổng Trời","Cửa Biển"], ok:0 },
+  { id:"thienmu", name:"Chùa Thiên Mụ", emoji:"🛕", color:"#f59e0b", tag:"Ngôi chùa cổ bên sông Hương",
+    pos:[16.4537,107.5446],
+    story:["Chùa Thiên Mụ nằm trên một ngọn đồi bên bờ sông Hương.",
+           "Chùa đã có hơn 400 năm tuổi.",
+           "Trước chùa có tháp Phước Duyên cao 7 tầng."],
+    q:"Tháp Phước Duyên ở chùa Thiên Mụ có mấy tầng?", a:["3 tầng","7 tầng","10 tầng"], ok:1 },
+  { id:"truongtien", name:"Cầu Trường Tiền", emoji:"🌉", color:"#8b5cf6", tag:"Cây cầu nổi tiếng của Huế",
+    pos:[16.4689,107.5889], dir:"bottom",
+    story:["Cầu Trường Tiền bắc qua dòng sông Hương thơ mộng.",
+           "Cầu đã được xây hơn 120 năm trước.",
+           "Buổi tối, đèn trên cầu đổi màu lung linh rất đẹp."],
+    q:"Cầu Trường Tiền bắc qua dòng sông nào?", a:["Sông Hồng","Sông Hương","Sông Cửu Long"], ok:1 },
+  { id:"dongba", name:"Chợ Đông Ba", emoji:"🛍️", color:"#0ea5e9", tag:"Khu chợ lớn nhất Huế",
+    pos:[16.4724,107.5886], dir:"right",
+    story:["Chợ Đông Ba là chợ lớn nhất ở Huế, gần cầu Trường Tiền.",
+           "Ở đây bán rất nhiều nón lá, mè xửng và các món quà Huế.",
+           "Du khách thường ghé chợ để mua quà về cho gia đình."],
+    q:"Món đồ nào là quà nổi tiếng bán ở chợ Đông Ba?", a:["Nón lá","Áo khoác lông","Tuyết"], ok:0 },
+  { id:"namgiao", name:"Đàn Nam Giao", emoji:"🌞", color:"#14b8a6", tag:"Nơi vua tế trời đất",
+    pos:[16.4376,107.5825],
+    story:["Đàn Nam Giao là nơi các vua Nguyễn làm lễ tế trời đất.",
+           "Vua cầu cho mưa thuận gió hòa, mùa màng tốt tươi.",
+           "Tầng trên cùng của đàn có hình tròn, tượng trưng cho bầu trời."],
+    q:"Tầng trên cùng của Đàn Nam Giao có hình gì?", a:["Hình tam giác","Hình vuông","Hình tròn"], ok:2 },
+  { id:"tuduc", name:"Lăng Tự Đức", emoji:"🪷", color:"#10b981", tag:"Lăng của vua Tự Đức",
+    pos:[16.4330,107.5655],
+    story:["Đây là lăng của vua Tự Đức.",
+           "Lăng có hồ sen, rất nhiều cây xanh và nhà nghỉ bên hồ.",
+           "Vua Tự Đức rất thích làm thơ và hay ra đây ngắm cảnh."],
+    q:"Vua Tự Đức rất thích làm gì?", a:["Đá bóng","Làm thơ","Đi biển"], ok:1 },
+  { id:"khaidinh", name:"Lăng Khải Định", emoji:"✨", color:"#ec4899", tag:"Lăng lấp lánh trên núi",
+    pos:[16.3990,107.5903],
+    story:["Lăng Khải Định nằm trên sườn núi, phải leo nhiều bậc thang.",
+           "Bên trong được trang trí bằng mảnh sành sứ và thủy tinh ghép lại.",
+           "Nhờ vậy, các bức tranh trong lăng lấp lánh rất đẹp."],
+    q:"Lăng Khải Định được trang trí bằng gì?", a:["Giấy màu","Mảnh sành sứ và thủy tinh","Lá cây"], ok:1 },
+  { id:"minhmang", name:"Lăng Minh Mạng", emoji:"🌲", color:"#6366f1", tag:"Lăng giữa rừng thông",
+    pos:[16.3878,107.5678],
+    story:["Đây là lăng của vua Minh Mạng.",
+           "Lăng nằm giữa rừng thông và những hồ nước trong xanh.",
+           "Các cổng, sân và điện xếp thẳng hàng nối tiếp nhau."],
+    q:"Lăng Minh Mạng là lăng của vị vua nào?", a:["Vua Minh Mạng","Vua Hùng","Vua Quang Trung"], ok:0 },
+];
+
+let done = new Set();
+try { done = new Set(JSON.parse(localStorage.getItem("hue-badges")||"[]")); } catch(e){}
+const save = () => { try{ localStorage.setItem("hue-badges", JSON.stringify([...done])); }catch(e){} };
+
+const map = L.map("map",{zoomControl:true}).setView([16.435,107.575],13);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+  maxZoom:18, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+const markers = {};
+function icon(p){
+  return L.divIcon({className:"", iconSize:[44,44], iconAnchor:[22,50], tooltipAnchor:[0,-30],
+    html:`<div class="pin ${done.has(p.id)?"done":""}" style="background:${p.color}"><span>${p.emoji}</span></div>`});
+}
+PLACES.forEach(p=>{
+  const m = L.marker(p.pos,{icon:icon(p), title:p.name, keyboard:true}).addTo(map);
+  const dir=p.dir||"top", off={top:[0,-14],left:[-24,0],right:[24,0],bottom:[0,-4]}[dir];
+  m.bindTooltip(p.name,{permanent:true,direction:dir,offset:off,className:"lbl"});
+  m.on("click",()=>openCard(p));
+  markers[p.id]=m;
+});
+const fitHue = () => { map.invalidateSize(); map.fitBounds(L.latLngBounds(PLACES.map(p=>p.pos)).pad(0.12)); };
+fitHue();
+window.addEventListener("load", fitHue);
+window.addEventListener("resize", () => map.invalidateSize());
+
+const sheet = document.getElementById("sheet");
+function openCard(p){
+  speechSynthesis && speechSynthesis.cancel();
+  sheet.innerHTML = `
+    <div class="grab"></div>
+    <div class="top">
+      <div class="big" style="background:${p.color}22">${p.emoji}</div>
+      <div><h2>${p.name}${done.has(p.id)?" ⭐":""}</h2><div class="tag">${p.tag}</div></div>
+    </div>
+    <div class="story">${p.story.map(s=>`<p>${s}</p>`).join("")}</div>
+    <div class="row">
+      <button class="btn b-listen" id="listen">🔊 Nghe đọc</button>
+      <button class="btn b-quiz" id="quizBtn">❓ Đố vui</button>
+      <button class="btn b-close" id="close" aria-label="Đóng">✕</button>
+    </div>
+    <div id="quizBox"></div>`;
+  sheet.classList.add("open");
+  map.panTo(p.pos,{animate:true});
+  document.getElementById("close").onclick = closeCard;
+  document.getElementById("listen").onclick = ()=>speak(p.name+". "+p.story.join(" "));
+  document.getElementById("quizBtn").onclick = ()=>quiz(p);
+}
+function closeCard(){ sheet.classList.remove("open"); speechSynthesis && speechSynthesis.cancel(); }
+map.on("click", closeCard);
+
+function speak(text){
+  if(!("speechSynthesis" in window)){ toast("Máy này chưa đọc được 😢"); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "vi-VN"; u.rate = 0.9;
+  const vi = speechSynthesis.getVoices().find(v=>v.lang && v.lang.toLowerCase().startsWith("vi"));
+  if(vi) u.voice = vi; else toast("Chưa có giọng tiếng Việt trên máy này");
+  speechSynthesis.speak(u);
+}
+
+function quiz(p){
+  const box = document.getElementById("quizBox");
+  box.innerHTML = `<div class="quiz"><h3>❓ ${p.q}</h3>
+    ${p.a.map((t,i)=>`<button class="opt" data-i="${i}">${"ABC"[i]}. ${t}</button>`).join("")}
+    <div class="msg" id="msg"></div></div>`;
+  box.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i, msg=document.getElementById("msg");
+    if(i===p.ok){
+      b.classList.add("ok"); msg.style.color="var(--green)"; msg.textContent="Đúng rồi! Bạn giỏi quá 🎉";
+      if(!done.has(p.id)){ done.add(p.id); save(); markers[p.id].setIcon(icon(p)); updateCount();
+        toast(`Bạn nhận huy hiệu ${p.emoji} ${p.name}!`);
+        if(done.size===PLACES.length) setTimeout(showBadges,1200); }
+    } else {
+      b.classList.remove("no"); void b.offsetWidth; b.classList.add("no");
+      msg.style.color="var(--red)"; msg.textContent="Chưa đúng, thử lại nhé! 💪";
+    }
+  });
+  box.scrollIntoView({behavior:"smooth",block:"end"});
+}
+
+function updateCount(){ document.getElementById("count").textContent = `${done.size}/${PLACES.length}`; }
+function showBadges(){
+  document.getElementById("grid").innerHTML = PLACES.map(p=>
+    `<div class="bd ${done.has(p.id)?"got":""}"><i>${p.emoji}</i>${p.name}</div>`).join("");
+  document.getElementById("certBox").innerHTML = done.size===PLACES.length
+    ? `<div class="cert"><div style="font-size:44px">🏆</div><h2>Nhà thám hiểm nhí</h2><p>Bạn đã khám phá đủ 8 di tích Huế!</p></div>`
+    : `<p>Còn ${PLACES.length-done.size} huy hiệu nữa là thành <b>Nhà thám hiểm nhí</b>!</p>`;
+  document.getElementById("badges").classList.add("show");
+}
+let tt;
+function toast(t){ const el=document.getElementById("toast"); el.textContent=t; el.classList.add("show");
+  clearTimeout(tt); tt=setTimeout(()=>el.classList.remove("show"),2200); }
+
+document.getElementById("badgeBtn").onclick = showBadges;
+document.getElementById("closeBadges").onclick = ()=>document.getElementById("badges").classList.remove("show");
+document.getElementById("start").onclick = ()=>{ document.getElementById("welcome").classList.remove("show"); fitHue(); };
+updateCount();
+
+// cho ảnh chụp minh hoạ: ?open=<id>&quiz=1&badges=1&nowelcome=1
+const qs = new URLSearchParams(location.search);
+if(qs.has("nowelcome")) document.getElementById("welcome").classList.remove("show");
+if(qs.get("open")){ const p=PLACES.find(x=>x.id===qs.get("open")); if(p){ openCard(p); if(qs.has("quiz")) quiz(p); } }
+if(qs.has("badges")){ (qs.get("badges")||"").split(",").filter(Boolean).forEach(id=>done.add(id)); PLACES.forEach(p=>markers[p.id].setIcon(icon(p))); updateCount(); showBadges(); }
+</script>
+</body>
+</html>
